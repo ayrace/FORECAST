@@ -1,4 +1,4 @@
-# Passo a passo — Consulta MDU Óptica
+# Passo a passo — Consulta MDU
 
 ## 1. Google Drive
 A pasta já configurada é:

@@ -1,4 +1,4 @@
-# Consulta MDU Óptica — Drive V3
+# Consulta MDU — Drive V3
 
 Aplicação Streamlit de consulta somente leitura alimentada pelo FORECAST MDU no Google Drive.
 

@@ -18,7 +18,7 @@ from openpyxl import load_workbook
 from openpyxl.utils.datetime import from_excel
 from streamlit_autorefresh import st_autorefresh
 
-APP_TITLE = "Consulta MDU Óptica"
+APP_TITLE = "Consulta MDU"
 TARGET_SHEET = "MDU'S BROWNFIELD(CONSULTA)"
 FALLBACK_PATH = Path(__file__).parent / "data" / "base_mdu.json"
 REFRESH_SECONDS = 300
@@ -299,7 +299,7 @@ def require_password() -> None:
     if st.session_state.get("auth_ok"):
         return
 
-    st.markdown("<div class='login-title'>Consulta MDU Óptica</div>", unsafe_allow_html=True)
+    st.markdown("<div class='login-title'>Consulta MDU</div>", unsafe_allow_html=True)
     password = st.text_input("Senha de acesso", type="password", placeholder="Digite a senha")
     if st.button("Entrar", use_container_width=True, type="primary"):
         if hmac.compare_digest(password, configured):
@@ -510,7 +510,7 @@ st.markdown(
         <div class="hero-brand">
           <div class="hero-icon">🔎</div>
           <div>
-            <div class="hero-title">Consulta MDU Óptica</div>
+            <div class="hero-title">Consulta MDU</div>
             <div class="hero-sub">Consulta operacional · somente leitura</div>
           </div>
         </div>
@@ -546,18 +546,11 @@ with col_city:
 with col_search:
     query = st.text_input("Endereço ou node", key="query", placeholder="Ex.: República, ZERO HORA 1811 ou GPONA01")
 
-b1, b2 = st.columns([1, 1])
-with b1:
-    if st.button("Limpar filtros", use_container_width=True):
-        st.session_state.city = "Todas as cidades"
-        st.session_state.query = ""
-        st.session_state.page = 1
-        st.rerun()
-with b2:
-    if st.button("Verificar atualização", use_container_width=True, type="primary"):
-        load_remote_data.clear()
-        st.session_state.page = 1
-        st.rerun()
+if st.button("Limpar filtros", use_container_width=True):
+    st.session_state.city = "Todas as cidades"
+    st.session_state.query = ""
+    st.session_state.page = 1
+    st.rerun()
 st.caption("Busca inteligente: ignora acentos, Rua/R e espaços extras.")
 st.markdown('</div>', unsafe_allow_html=True)
 
