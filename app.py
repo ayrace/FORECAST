@@ -453,6 +453,14 @@ section[data-testid="stSidebar"] { display:none; }
     background:#fbfdff;
     border:1px solid #ccd7e4 !important;
 }
+/* iPhone/Safari: 16px evita zoom automático e melhora foco/toque no campo */
+[data-testid="stTextInput"] input {
+    font-size:16px !important;
+    -webkit-user-select:text !important;
+    user-select:text !important;
+    pointer-events:auto !important;
+    touch-action:manipulation;
+}
 [data-testid="stTextInput"] input:focus,
 [data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within {
     border-color:#1769e0 !important;
@@ -536,10 +544,10 @@ if "page" not in st.session_state:
     st.session_state.page = 1
 
 def clear_filters() -> None:
-    # Callback executado antes da nova renderização dos widgets.
-    # Evita alterar city/query depois que selectbox/text_input já foram criados.
     st.session_state["city"] = "Todas as cidades"
     st.session_state["query"] = ""
+    st.session_state["city_draft"] = "Todas as cidades"
+    st.session_state["query_draft"] = ""
     st.session_state["page"] = 1
 
 st.markdown('<div class="search-card">', unsafe_allow_html=True)
@@ -547,19 +555,44 @@ st.markdown(
     f'<div class="search-head"><div><div class="search-title">Consultar MDU</div><div class="search-sub">Cidade + endereço ou node.</div></div><div class="update-note">Atualizado: {verified_at}</div></div>',
     unsafe_allow_html=True,
 )
-col_city, col_search = st.columns([1, 1.8])
-with col_city:
-    city = st.selectbox("Cidade", ["Todas as cidades", *cities], key="city")
-with col_search:
-    query = st.text_input("Endereço ou node", key="query", placeholder="Ex.: República, ZERO HORA 1811 ou GPONA01")
+
+# Formulário estável para celular: digitar não dispara rerender da página.
+with st.form("mdu_search_form", clear_on_submit=False):
+    col_city, col_search = st.columns([1, 1.8])
+    with col_city:
+        city_draft = st.selectbox(
+            "Cidade",
+            ["Todas as cidades", *cities],
+            key="city_draft",
+            index=(["Todas as cidades", *cities].index(st.session_state.get("city", "Todas as cidades"))
+                   if st.session_state.get("city", "Todas as cidades") in ["Todas as cidades", *cities] else 0),
+        )
+    with col_search:
+        query_draft = st.text_input(
+            "Endereço ou node",
+            key="query_draft",
+            value=st.session_state.get("query", ""),
+            placeholder="Ex.: República, ZERO HORA 1811 ou GPONA01",
+        )
+
+    submit_search = st.form_submit_button("Buscar", use_container_width=True, type="primary")
+
+if submit_search:
+    st.session_state["city"] = city_draft
+    st.session_state["query"] = query_draft
+    st.session_state["page"] = 1
+    st.rerun()
 
 st.button(
     "Limpar filtros",
     use_container_width=True,
     on_click=clear_filters,
 )
-st.caption("Busca inteligente: ignora acentos, Rua/R e espaços extras.")
+st.caption("Busca inteligente: ignora acentos, Rua/R e espaços extras. No celular, digite e toque em Buscar.")
 st.markdown('</div>', unsafe_allow_html=True)
+
+city = st.session_state.get("city", "Todas as cidades")
+query = st.session_state.get("query", "")
 
 query_norm = normalize_search(query)
 if query_norm and len(query_norm) < 2:
