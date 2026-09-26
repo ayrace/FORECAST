@@ -535,6 +535,13 @@ if "query" not in st.session_state:
 if "page" not in st.session_state:
     st.session_state.page = 1
 
+def clear_filters() -> None:
+    # Callback executado antes da nova renderização dos widgets.
+    # Evita alterar city/query depois que selectbox/text_input já foram criados.
+    st.session_state["city"] = "Todas as cidades"
+    st.session_state["query"] = ""
+    st.session_state["page"] = 1
+
 st.markdown('<div class="search-card">', unsafe_allow_html=True)
 st.markdown(
     f'<div class="search-head"><div><div class="search-title">Consultar MDU</div><div class="search-sub">Cidade + endereço ou node.</div></div><div class="update-note">Atualizado: {verified_at}</div></div>',
@@ -546,11 +553,11 @@ with col_city:
 with col_search:
     query = st.text_input("Endereço ou node", key="query", placeholder="Ex.: República, ZERO HORA 1811 ou GPONA01")
 
-if st.button("Limpar filtros", use_container_width=True):
-    st.session_state.city = "Todas as cidades"
-    st.session_state.query = ""
-    st.session_state.page = 1
-    st.rerun()
+st.button(
+    "Limpar filtros",
+    use_container_width=True,
+    on_click=clear_filters,
+)
 st.caption("Busca inteligente: ignora acentos, Rua/R e espaços extras.")
 st.markdown('</div>', unsafe_allow_html=True)
 
