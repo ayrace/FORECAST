@@ -1,59 +1,60 @@
-# Passo a passo — colocar a Consulta MDU no ar
+# Passo a passo — Consulta MDU Óptica
 
-## Etapa 1 — GitHub
+## 1. Google Drive
+A pasta já configurada é:
+`https://drive.google.com/drive/folders/1h8Ium1WG9ZmZeuONQuBtAGScw7ukie9V?usp=drive_link`
 
-1. Entre no GitHub.
-2. Crie um novo repositório chamado `consulta-mdu-optica`.
-3. Deixe o repositório **Private** se a política da empresa permitir o uso com Streamlit Cloud; caso contrário, valide o modelo de acesso com TI.
-4. Faça upload de todos os arquivos deste pacote, preservando as pastas `.streamlit` e `data`.
-5. Faça o commit.
+Ela foi validada com o arquivo:
+`FORECAST CONSOLIDADO CONSTRUÇÃO MDU_11_09_26.xlsx`
 
-## Etapa 2 — fonte da planilha
+Mantenha somente um `.xlsx` de produção nessa pasta.
 
-### Opção recomendada: Google Drive
+## 2. GitHub
+Crie um repositório, por exemplo `consulta-mdu-optica`, e envie **o conteúdo da pasta do projeto**, não o ZIP fechado.
 
-1. Coloque o FORECAST em uma pasta controlada.
-2. Use sempre o **mesmo arquivo**.
-3. Compartilhe de forma que a aplicação consiga baixar o arquivo.
-4. Copie o link desse arquivo.
+Na raiz do repositório devem aparecer pelo menos:
+- `app.py`
+- `requirements.txt`
+- `README.md`
+- pasta `data`
+- pasta `.streamlit`
 
-Ao atualizar o FORECAST, substitua a versão do arquivo mantendo o mesmo ID/link.
+## 3. Streamlit Community Cloud
+Crie o app apontando para:
+- repositório: o criado acima
+- branch: `main`
+- arquivo principal: `app.py`
 
-### OneDrive/SharePoint
+## 4. Secrets
+A fonte já está embutida como padrão no `app.py`, então `MDU_SOURCE_URL` é opcional.
 
-Também funciona desde que o endereço configurado permita download direto sem uma tela interativa de login. Links corporativos autenticados normalmente exigem uma integração adicional.
-
-## Etapa 3 — Streamlit Cloud
-
-1. Abra `share.streamlit.io`.
-2. Clique em **Create app**.
-3. Selecione o repositório `consulta-mdu-optica`.
-4. Branch: `main`.
-5. Main file path: `app.py`.
-6. Deploy.
-
-## Etapa 4 — configurar a atualização automática
-
-No Streamlit, abra **Settings > Secrets** e cole:
+Se quiser configurar explicitamente em **Settings > Secrets**:
 
 ```toml
-MDU_SOURCE_URL = "COLE_O_LINK_DO_FORECAST"
+MDU_SOURCE_URL = "https://drive.google.com/drive/folders/1h8Ium1WG9ZmZeuONQuBtAGScw7ukie9V?usp=drive_link"
+```
+
+Para proteger a consulta com senha, adicione também:
+
+```toml
 APP_PASSWORD = "SUA_SENHA"
 ```
 
-Salve.
+## 5. Atualização diária
+Quando receber o FORECAST mais recente:
+1. entre na pasta `MDU-FORECAST`;
+2. substitua o `.xlsx` anterior pelo novo;
+3. deixe somente uma planilha de produção na pasta;
+4. não altere GitHub nem Streamlit.
 
-A partir daí:
+A aplicação verifica automaticamente a cada 5 minutos. Para testar imediatamente, abra o site e pressione **Verificar atualização**.
 
-- o endereço do site não muda;
-- os usuários recebem o link uma única vez;
-- a planilha é verificada a cada 5 minutos;
-- se a nova planilha falhar, a base inicial continua disponível;
-- o botão **Verificar atualização** força uma nova leitura imediatamente.
+## 6. Como confirmar
+No cabeçalho da consulta você verá:
+- data identificada no nome do FORECAST;
+- horário da última verificação;
+- total de registros;
+- total de cidades;
+- nome/identificação da fonte.
 
-## Rotina diária
-
-**Responsável pela base:** atualiza o mesmo FORECAST no Drive/OneDrive.  
-**Usuários:** apenas acessam o mesmo link da Consulta MDU.
-
-Não é necessário reenviar HTML, gerar nova versão ou mandar um novo link.
+Se a nova planilha estiver inválida, a última base de contingência permanece disponível e a página exibirá um aviso.

@@ -23,6 +23,7 @@ TARGET_SHEET = "MDU'S BROWNFIELD(CONSULTA)"
 FALLBACK_PATH = Path(__file__).parent / "data" / "base_mdu.json"
 REFRESH_SECONDS = 300
 PAGE_SIZE = 50
+DEFAULT_SOURCE_URL = "https://drive.google.com/drive/folders/1h8Ium1WG9ZmZeuONQuBtAGScw7ukie9V?usp=drive_link"
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -117,13 +118,64 @@ def extract_drive_id(url: str) -> str:
     return ""
 
 
+def source_date_from_name(name: str) -> str:
+    """Tenta obter a data da base a partir do nome do FORECAST (ex.: 11_09_26)."""
+    match = re.search(r"(?:^|[^0-9])(\d{2})[_-](\d{2})[_-](\d{2}|\d{4})(?:[^0-9]|$)", name or "")
+    if not match:
+        return ""
+    day, month, year = match.groups()
+    if len(year) == 2:
+        year = f"20{year}"
+    try:
+        parsed = datetime(int(year), int(month), int(day))
+        return parsed.strftime("%d/%m/%Y")
+    except ValueError:
+        return ""
+
+
 def download_source(url: str) -> tuple[bytes, str]:
     headers = {
-        "User-Agent": "Mozilla/5.0 Consulta-MDU/1.0",
+        "User-Agent": "Mozilla/5.0 Consulta-MDU/2.0",
         "Cache-Control": "no-cache, no-store, max-age=0",
         "Pragma": "no-cache",
     }
 
+    # Pasta do Google Drive: baixa o conteúdo da pasta e exige exatamente
+    # uma planilha Excel. Assim basta substituir/atualizar o FORECAST na pasta.
+    if "drive.google.com/drive/folders/" in url:
+        try:
+            import gdown
+            with tempfile.TemporaryDirectory(prefix="mdu_drive_") as tmpdir:
+                result = gdown.download_folder(
+                    url=url,
+                    output=tmpdir,
+                    quiet=True,
+                    use_cookies=False,
+                    remaining_ok=True,
+                )
+                if not result:
+                    raise RuntimeError("A pasta do Google Drive está vazia ou não está acessível ao site.")
+                candidates = []
+                for item in result:
+                    path = Path(item)
+                    if path.suffix.lower() in {".xlsx", ".xlsm"} and not path.name.startswith("~$"):
+                        candidates.append(path)
+                if not candidates:
+                    candidates = [p for p in Path(tmpdir).rglob("*.xlsx") if not p.name.startswith("~$")]
+                if len(candidates) == 0:
+                    raise RuntimeError("Nenhuma planilha .xlsx foi encontrada na pasta MDU-FORECAST.")
+                if len(candidates) > 1:
+                    names = ", ".join(sorted(p.name for p in candidates)[:6])
+                    raise RuntimeError(f"Há mais de uma planilha na pasta ({names}). Deixe somente o FORECAST atual.")
+                source = candidates[0]
+                content = source.read_bytes()
+                if len(content) < 100_000:
+                    raise RuntimeError("A planilha encontrada parece incompleta ou inválida.")
+                return content, f"Google Drive · {source.name}"
+        except Exception as exc:
+            raise RuntimeError(f"Falha ao ler a pasta MDU-FORECAST: {exc}") from exc
+
+    # Link direto para um arquivo no Google Drive (continua suportado).
     if "drive.google.com" in url:
         try:
             import gdown
@@ -131,7 +183,7 @@ def download_source(url: str) -> tuple[bytes, str]:
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
                 tmp_path = tmp.name
             try:
-                result = gdown.download(url=url, output=tmp_path, quiet=True, fuzzy=True)
+                result = gdown.download(url=url, output=tmp_path, quiet=True, fuzzy=True, use_cookies=False)
                 if not result:
                     raise RuntimeError("O Google Drive não liberou o download da planilha.")
                 content = Path(tmp_path).read_bytes()
@@ -206,7 +258,7 @@ def extract_records_from_xlsx(content: bytes, source_name: str) -> dict[str, Any
 
         return {
             "meta": {
-                "sourceDate": datetime.now().strftime("%d/%m/%Y"),
+                "sourceDate": source_date_from_name(source_name) or "não identificada",
                 "updatedAt": datetime.now().strftime("%d/%m/%Y %H:%M"),
                 "sourceFile": source_name,
                 "records": len(rows),
@@ -234,7 +286,7 @@ def load_fallback_data() -> dict[str, Any]:
 
 
 def load_data() -> tuple[dict[str, Any], str | None]:
-    url = secret("MDU_SOURCE_URL")
+    url = secret("MDU_SOURCE_URL", DEFAULT_SOURCE_URL)
     if url:
         try:
             return load_remote_data(url), None
@@ -316,8 +368,10 @@ with st.spinner("Carregando base MDU..."):
 meta = data.get("meta", {})
 records = data.get("rows", [])
 cities = data.get("cities", [])
-updated = meta.get("updatedAt") or meta.get("sourceDate") or "não informado"
-source_label = "Base automática" if not meta.get("fallback") else "Base inicial"
+base_date = meta.get("sourceDate") or "não informada"
+verified_at = meta.get("updatedAt") or "não informado"
+source_label = "Google Drive · automático" if not meta.get("fallback") else "Base de contingência"
+source_file = str(meta.get("sourceFile") or "")
 
 st.markdown(
     f"""
@@ -330,7 +384,8 @@ st.markdown(
       </div>
       <div class="hero-meta">
         <span class="badge">{source_label}</span>
-        <span class="badge">Atualizada: {updated}</span>
+        <span class="badge">Base: {base_date}</span>
+        <span class="badge">Verificada: {verified_at}</span>
         <span class="badge">{len(records):,} registros</span>
         <span class="badge">{len(cities)} cidades</span>
       </div>
@@ -338,6 +393,8 @@ st.markdown(
     """.replace(",", "."),
     unsafe_allow_html=True,
 )
+if source_file:
+    st.caption(f"Fonte: {source_file}")
 
 if load_warning:
     st.warning(load_warning)
