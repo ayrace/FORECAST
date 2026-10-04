@@ -105,6 +105,27 @@ def format_date(value: Any) -> str:
     return text
 
 
+def format_percent(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        number = float(value)
+        if number < 0:
+            return ""
+        pct = number * 100 if number <= 1 else number
+        return f"{pct:.1f}%".replace(".", ",")
+    text = clean_value(value)
+    if not text:
+        return ""
+    try:
+        number = float(text.replace("%", "").replace(",", "."))
+        if "%" not in text and number <= 1:
+            number *= 100
+        return f"{number:.1f}%".replace(".", ",")
+    except Exception:
+        return text
+
+
 def extract_drive_id(url: str) -> str:
     patterns = [
         r"/file/d/([A-Za-z0-9_-]+)",
@@ -216,6 +237,10 @@ def extract_records_from_xlsx(content: bytes, source_name: str) -> dict[str, Any
             "epo": "EPO MDU RESPONSAVEL",
             "finish": "CONSTRUCAO RI MDU FIM",
             "status": "CONSTRUCAO RI MDU STATUS",
+            "bf_hps": "BROWNFIELD HPS",
+            "bf_inst_gpon": "BROWNFIELD INST GPON",
+            "gpon_hibrido": "GPON HIBRIDO",
+            "bf_penetracao": "BROWNFIELD PENETRACAO GPON",
         }
 
         header_row = None
@@ -228,10 +253,10 @@ def extract_records_from_xlsx(content: bytes, source_name: str) -> dict[str, Any
                 break
 
         if header_row is None:
-            raise RuntimeError("Não foi possível localizar os 6 campos obrigatórios na aba de consulta.")
+            raise RuntimeError("Não foi possível localizar os campos obrigatórios da consulta na aba MDU Brownfield.")
 
         rows: list[dict[str, str]] = []
-        seen: set[tuple[str, str, str, str, str, str]] = set()
+        seen: set[tuple[str, ...]] = set()
         for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
             city = clean_value(row[col_map["city"]] if col_map["city"] < len(row) else None)
             address = clean_value(row[col_map["address"]] if col_map["address"] < len(row) else None)
@@ -241,11 +266,18 @@ def extract_records_from_xlsx(content: bytes, source_name: str) -> dict[str, Any
             epo = clean_value(row[col_map["epo"]] if col_map["epo"] < len(row) else None).upper()
             finish = format_date(row[col_map["finish"]] if col_map["finish"] < len(row) else None)
             status = clean_value(row[col_map["status"]] if col_map["status"] < len(row) else None)
-            key = (city, address, node, epo, finish, status)
+            bf_hps = clean_value(row[col_map["bf_hps"]] if col_map["bf_hps"] < len(row) else None)
+            bf_inst_gpon = clean_value(row[col_map["bf_inst_gpon"]] if col_map["bf_inst_gpon"] < len(row) else None)
+            gpon_hibrido = clean_value(row[col_map["gpon_hibrido"]] if col_map["gpon_hibrido"] < len(row) else None)
+            bf_penetracao = format_percent(row[col_map["bf_penetracao"]] if col_map["bf_penetracao"] < len(row) else None)
+            key = (city, address, node, epo, finish, status, bf_hps, bf_inst_gpon, gpon_hibrido, bf_penetracao)
             if key in seen:
                 continue
             seen.add(key)
-            rows.append({"c": city, "a": address, "n": node, "e": epo, "f": finish, "s": status})
+            rows.append({
+                "c": city, "a": address, "n": node, "e": epo, "f": finish, "s": status,
+                "bh": bf_hps, "bi": bf_inst_gpon, "gh": gpon_hibrido, "bp": bf_penetracao,
+            })
 
         rows.sort(key=lambda item: (item["c"], item["a"], item["n"], item["e"], item["f"], item["s"]))
         cities = sorted({item["c"] for item in rows})
@@ -429,6 +461,11 @@ section[data-testid="stSidebar"] { display:none; }
     padding:11px 12px;
     min-height:68px;
 }
+.field-box.sinergia {
+    background:#f2fbf6;
+    border-color:#d1eadb;
+}
+.field-box.sinergia .field-label { color:#4c7b60; }
 .field-label { color:#78879b; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
 .field-value { color:#12233f; font-size:.89rem; font-weight:760; margin-top:5px; overflow-wrap:anywhere; line-height:1.35; }
 .empty {
@@ -665,6 +702,10 @@ else:
                 <div class="field-box"><div class="field-label">Node</div><div class="field-value">{item.get('n') or 'Não informado'}</div></div>
                 <div class="field-box"><div class="field-label">EPO MDU responsável</div><div class="field-value">{item.get('e') or 'Não informado'}</div></div>
                 <div class="field-box"><div class="field-label">Construção RI MDU – fim</div><div class="field-value">{item.get('f') or 'Não informado'}</div></div>
+                <div class="field-box sinergia"><div class="field-label">Brownfield HPs</div><div class="field-value">{item.get('bh') or 'Não informado'}</div></div>
+                <div class="field-box sinergia"><div class="field-label">Brownfield inst. GPON</div><div class="field-value">{item.get('bi') or 'Não informado'}</div></div>
+                <div class="field-box sinergia"><div class="field-label">GPON + Híbrido</div><div class="field-value">{item.get('gh') or 'Não informado'}</div></div>
+                <div class="field-box sinergia"><div class="field-label">Brownfield % Penetração GPON</div><div class="field-value">{item.get('bp') or 'Não informado'}</div></div>
               </div>
             </article>
             """,

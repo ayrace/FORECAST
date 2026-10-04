@@ -29,3 +29,6 @@ Se o Google Drive estiver temporariamente indisponível ou a nova planilha tiver
 Para o modo simples com `gdown`, a pasta precisa permitir leitura pelo ambiente do Streamlit. Se a base não puder ser pública por link, migre para acesso autenticado via Google Drive API/service account.
 
 Veja `PASSO_A_PASSO.md`.
+
+## V9 — campos SINERGIA
+A consulta também exibe os campos Brownfield HPs, Brownfield inst. GPON, GPON + Híbrido e Brownfield % Penetração GPON, lidos diretamente da mesma aba MDU'S BROWNFIELD(CONSULTA).
